@@ -1,4 +1,4 @@
-# Recursive Replay Parsing for Tournament Replay Packs
+# Replay Parsing for Tournament Replay Packs
 
 This is a script for parsing tournament replay packs. It recursively searches sub-directories for replay files, then parses the replays using the [Zephyrus Replay Parser](https://github.com/ZephyrBlu/zephyrus-sc2-parser).
 
@@ -37,7 +37,7 @@ Defaults currently available are `ignore_units` and `merge_units`.
 
 `ignore_units` is a list of temporary unit which are usually not wanted.
 
-`merge_units` is a dictionary in the format of: `<unit name>: <changed name>`. It can be used to merge information from different unit modes or to re-name a unit, such as `LurkerMP` --> `Lurker`.
+`merge_units` is a dictionary in the format of `<unit name>: <changed name>`. It can be used to merge information from different unit modes or to re-name a unit, such as `LurkerMP` --> `Lurker`.
 
 ### Optional Arguments
 
@@ -62,3 +62,14 @@ Ex: `(<pattern name>, <pattern>)`
 
 The list of tuples can be accessed through `kwargs['identifier']` in your `data_function`.
 
+### Example
+
+The `hsc_analysis.py` file is an example of usage for replay files from HSC XX.
+
+The `parse_data` function loops through each player's units and buildings that were created during the game and records information about the unit/building and game. It also indentifies and stores groups that players were in.
+
+## Exporting Data
+
+Data is exported as JSON to a JSON file by default, but you can use the `json_to_csv.py` file to create a CSV file from the JSON data.
+
+In future there will be an option to define a data schema as an argument for `recursive_parse`.
