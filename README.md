@@ -1,4 +1,4 @@
-# Recursive Replay Parsing for Tournaments
+# Recursive Replay Parsing for Tournament Replay Packs
 
 This is a script for parsing tournament replay packs. It recursively searches sub-directories for replay files, then parses the replays using the [Zephyrus Replay Parser](https://github.com/ZephyrBlu/zephyrus-sc2-parser).
 
