@@ -62,8 +62,10 @@ def recursive_parse(
         ('.vs\\.?.', 'split'),
     ]
 
-    if not player_match:
+    if player_match is None:
         player_match = standard_player_match
+    elif player_match is False:
+        player_match = []
 
     def recurse(path, player_names=[], identifiers=[]):
         if path.is_dir():
@@ -108,29 +110,34 @@ def recursive_parse(
             path_str = PurePath(path)
             logging.debug(f'Found file: {path_str.name}')
             logging.debug(path)
-            logging.debug(f'Player 1: {player_names[0]}, Player 2: {player_names[1]}\n\n')
+            for index, p in enumerate(player_names):
+                logging.debug(f'Player {index}: {p}\n')
+            logging.debug('\n')
             players, timeline, stats, metadata = parse_replay(
                 path_str, local=True, detailed=True
             )
 
-            match_ratios = []
-            for p_id, p in players.items():
-                # partial_ratio fuzzy matches substrings instead of an exact match
-                current_match_ratio = fuzz.partial_ratio(p.name, player_names[0])
-                match_ratios.append((p.player_id, p.name, current_match_ratio))
+            if player_match:
+                match_ratios = []
+                for p_id, p in players.items():
+                    # partial_ratio fuzzy matches substrings instead of an exact match
+                    current_match_ratio = fuzz.partial_ratio(p.name, player_names[0])
+                    match_ratios.append((p.player_id, p.name, current_match_ratio))
 
-            name_match = max(match_ratios, key=lambda x: x[2])
+                name_match = max(match_ratios, key=lambda x: x[2])
 
-            # linking matched names to in game names
-            name_id_matches = {
-                name_match[0]: player_names[0]
-            }
+                # linking matched names to in game names
+                name_id_matches = {
+                    name_match[0]: player_names[0]
+                }
 
-            if name_match[0] == 1:
-                name_id_matches[2] = player_names[1]
+                if name_match[0] == 1:
+                    name_id_matches[2] = player_names[1]
+                else:
+                    name_id_matches[1] = player_names[1]
+                logging.debug(name_id_matches)
             else:
-                name_id_matches[1] = player_names[1]
-            logging.debug(name_id_matches)
+                name_id_matches = {}
 
             match_info = data_function(
                 players,
@@ -147,5 +154,5 @@ def recursive_parse(
             logging.error('Error: Not a file or directory')
     recurse(path)
 
-    with open('match_info_new.json', 'w', encoding='utf-8') as output:
+    with open('match_info.json', 'w', encoding='utf-8') as output:
         json.dump({'match_info': global_match_info}, output)

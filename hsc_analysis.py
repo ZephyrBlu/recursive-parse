@@ -1,5 +1,5 @@
 import uuid
-from recursive_parse import recursive_parse
+from sc2_tournament_analysis import recursive_parse, json_to_csv
 
 """
 data schema:
@@ -73,3 +73,24 @@ recursive_parse(
     data_function=parse_data,
     identifier_rules=[('group', '(?<=Group )\\w{1}(?: *$)')],
 )
+
+csv_rows = [
+    'GameID',
+    'Map',
+    'Duration',
+    'PlayerName',
+    'IsWinner',
+    'Race',
+    'UnitName',
+    'BirthTime',
+    'DeathTime',
+    'Group',
+]
+
+
+def func(record):
+    print(record)
+    return tuple(value for value in record.values())
+
+
+json_to_csv(csv_rows, data_function=func)
