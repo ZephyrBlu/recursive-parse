@@ -1,6 +1,6 @@
 # Replay Parsing for Tournament Replay Packs
 
-This is a script for parsing tournament replay packs. It recursively searches sub-directories for replay files, then parses the replays using the [Zephyrus Replay Parser](https://github.com/ZephyrBlu/zephyrus-sc2-parser).
+This is a (small) library for parsing tournament replay packs. It currently allows you to recursively search sub-directories for replay files, then parse them using the [Zephyrus Replay Parser](https://github.com/ZephyrBlu/zephyrus-sc2-parser).
 
 You can inject a function to analyze output data. Analyzed data is aggregated and stored, then exported as JSON.
 
@@ -10,11 +10,15 @@ Information from directory names such as group, BoX and player names can be also
 
 This script is hosted on PyPI and can be installed with pip
 
-`pip install recursive_parse`
+`pip install sc2_tournament_analysis`
 
-The `recursive_parse` function is imported by default
+You can import the `recursive_parse` and `json_to_csv` functions
 
-`import recursive_parse`
+`from sc2_tournament_analysis import recursive_parse, json_to_csv`
+
+## Functions
+
+### `recursive_parse`
 
 ### Required Arguments
 
@@ -68,8 +72,54 @@ The `hsc_analysis.py` file is an example of usage for replay files from HSC XX.
 
 The `parse_data` function loops through each player's units and buildings that were created during the game and records information about the unit/building and game. It also indentifies and stores groups that players were in.
 
-## Exporting Data
+### `json_to_csv`
 
 Data is exported as JSON to a JSON file by default, but you can use the `json_to_csv.py` file to create a CSV file from the JSON data.
 
-In future there will be an option to define a data schema as an argument for `recursive_parse`.
+### Required Arguments
+
+There is 1 required positional argument for `json_to_csv`: `headers`
+
+`headers` represents the column names in the CSV file
+
+### Optional Arguments
+
+There is 1 optional keyword argument for `json_to_csv`: `data_function`
+
+-----
+
+**WARNING: If you do not provide a `data_function` function your data generated from `recursive_parse` MUST be a `list` of iterable data (I.e. Either `list` or `tuple` data)**
+
+Ex:
+
+    match_info.json
+    
+    {
+        'match_info': [
+            ['this', 'is', 'valid'],
+            ('so', 'is', 'this'),
+            { 'dicts': 'are not', 'iterable': 'though' }
+        ]
+    }
+
+-----
+
+Similarly to `recursive_parse`, `data_function` is applied to each record that was generated with `recursive_parse`.
+
+You can use this function to process or make calculations/changes to the data before it is written to CSV format. For instance, flattening a `dict` structure or making a calculation based on multiple values.
+
+Data that is returned from `data_function` represents 1 row/record in the CSV data. Its return value must be iterable and should be the same size as the number of columns you want.
+
+Ex:
+
+    columns = ['Name', 'Age', 'Gender']
+    json_to_csv(columns, data_function=some_func)
+    
+    ...
+    
+    # record = { 'name': 'John', 'age': 25, 'gender': 'Male']
+    def some_func(record):
+        # record is not iterable so needs to be processed
+        # create an inline generator then cast to tuple to get values
+        return tuple(value for value in record.values())
+    
