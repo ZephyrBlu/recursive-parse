@@ -1,13 +1,19 @@
 from pathlib import Path, PurePath
 import re
 import json
-from fuzzywuzzy import fuzz
-from zephyrus_sc2_parser import parse_replay
+import copy
 import logging
+from sc2_tournament_analysis.defaults import standard_player_match
+from sc2_tournament_analysis.handle_replay import handle_replay
 
 
 def recursive_parse(
-    *, sub_dir=None, data_function, player_match=None, identifier_rules=[]
+    *,
+    sub_dir=None,
+    data_function,
+    player_match=None,
+    identifier_rules=[],
+    multi=False,
 ):
     """
     Function that recurses through directories
@@ -16,143 +22,94 @@ def recursive_parse(
 
     logging.basicConfig(filename='recursive_parse.log', level=logging.DEBUG)
     path = Path().absolute() / sub_dir
+    match_info_paths = []
     global_match_info = []
-
-    standard_ignore_units = [
-        'AdeptPhaseShift',
-        'Larva',
-        'LocustMP',
-        'OracleStasisTrap',
-        'Interceptor',
-        'MULE',
-        'AutoTurret',
-        'Egg',
-        'TransportOverlordCocoon',
-        'OverlordCocoon',
-        'LurkerMPEgg',
-        'LocustMPFlying',
-        'LocustMPPrecursor',
-        'InfestedTerransEgg',
-        'InfestorTerran',
-        'BroodlingEscort',
-        'Broodling',
-        'RavagerCocoon',
-        'BanelingCocoon',
-        'BroodLordCocoon',
-    ]
-
-    standard_merge_units = {
-        'ObserverSiegeMode': 'Observer',
-        'WarpPrismPhasing': 'WarpPrism',
-        'WidowMineBurrowed': 'WindowMine',
-        'SiegeTankSieged': 'SiegeTank',
-        'ThorAP': 'Thor',
-        'VikingFighter': 'Viking',
-        'VikingAssault': 'Viking',
-        'LiberatorAG': 'Liberator',
-        'OverseerSiegeMode': 'Overseer',
-        'OverlordTransport': 'Overlord',
-        'LurkerMP': 'Lurker',
-        'LurkerMPBurrowed': 'Lurker',
-        'SwarmhostMP': 'Swarmhost',
-    }
-
-    standard_player_match = [
-        ('\\w+ +[v,V][s,S]\\.? +\\w+', 'search'),
-        ('.vs\\.?.', 'split'),
-    ]
 
     if player_match is None:
         player_match = standard_player_match
     elif player_match is False:
         player_match = []
 
+    def check_dir_name(path_str, player_names, identifiers):
+        # See if dir is an identifier
+        try:
+            for rule_name, rule in identifier_rules:
+                match = re.search(rule, path_str)
+                if match and (rule_name, match.group()) not in identifiers:
+                    identifiers.append((rule_name, match.group()))
+                    break
+        except ValueError as error:
+            logging.critical('Error: rule does not follow format (<name>, <rule>)')
+            logging.critical(f'{error}\n')
+            return
+
+        # Regex to parse player names from dir name
+        current_name_str = path_str
+        for rule, rule_type in player_match:
+            if not current_name_str:
+                break
+
+            if rule_type == 'search':
+                current_name_str = re.search(rule, current_name_str)
+                if current_name_str:
+                    current_name_str = current_name_str.group()
+
+            elif rule_type == 'split':
+                current_name_str = re.split(rule, current_name_str)
+
+                if current_name_str and type(current_name_str) is list:
+                    player_names = current_name_str
+                else:
+                    player_names = None
+        return player_names
+
     def recurse(path, player_names=[], identifiers=[]):
         if path.is_dir():
             logging.debug(f'In dir: {PurePath(path).name}')
             logging.debug(f'Path: {path}\n')
+            current_path_str = PurePath(path).name
+            result = check_dir_name(
+                current_path_str, player_names, identifiers
+            )
+            if result:
+                player_names = result
+
             # iterate through subdirectories and recurse
             for item in path.iterdir():
                 item_path_str = PurePath(item).name
-
-                # See if dir is an identifier
-                try:
-                    for rule_name, rule in identifier_rules:
-                        match = re.search(rule, item_path_str)
-                        if match:
-                            identifiers.append((rule_name, match.group()))
-                            break
-                except ValueError as error:
-                    logging.critical('Error: rule does not follow format (<name>, <rule>)')
-                    logging.critical(f'{error}\n')
-                    return
-
-                # Regex to parse player names from dir name
-                current_name_str = item_path_str
-                for rule, rule_type in player_match:
-                    if not current_name_str:
-                        break
-
-                    if rule_type == 'search':
-                        current_name_str = re.search(rule, current_name_str)
-                        if current_name_str:
-                            current_name_str = current_name_str.group()
-
-                    elif rule_type == 'split':
-                        current_name_str = re.split(rule, current_name_str)
-
-                        if current_name_str and type(current_name_str) is list:
-                            player_names = current_name_str
+                item_identifiers = copy.deepcopy(identifiers)
+                result = check_dir_name(
+                    item_path_str, player_names, item_identifiers
+                )
+                if result:
+                    player_names = result
 
                 # if dir, recurse
-                recurse(item, player_names, identifiers)
+                recurse(item, player_names, item_identifiers)
         elif path.is_file():
-            path_str = PurePath(path)
-            logging.debug(f'Found file: {path_str.name}')
+            logging.debug(f'Found file: {PurePath(path).name}')
             logging.debug(path)
             for index, p in enumerate(player_names):
                 logging.debug(f'Player {index}: {p}\n')
             logging.debug('\n')
-            players, timeline, stats, metadata = parse_replay(
-                path_str, local=True, detailed=True
-            )
 
-            if player_match:
-                match_ratios = []
-                for p_id, p in players.items():
-                    # partial_ratio fuzzy matches substrings instead of an exact match
-                    current_match_ratio = fuzz.partial_ratio(p.name, player_names[0])
-                    match_ratios.append((p.player_id, p.name, current_match_ratio))
-
-                name_match = max(match_ratios, key=lambda x: x[2])
-
-                # linking matched names to in game names
-                name_id_matches = {
-                    name_match[0]: player_names[0]
-                }
-
-                if name_match[0] == 1:
-                    name_id_matches[2] = player_names[1]
-                else:
-                    name_id_matches[1] = player_names[1]
-                logging.debug(name_id_matches)
+            if multi:
+                match_info_paths.append((path, player_names, identifiers))
             else:
-                name_id_matches = {}
-
-            match_info = data_function(
-                players,
-                timeline,
-                stats,
-                metadata,
-                name_id_matches=name_id_matches,
-                identifiers=identifiers,
-                ignore_units=standard_ignore_units,
-                merge_units=standard_merge_units,
-            )
-            global_match_info.extend(match_info)
+                match_info = handle_replay(
+                    path,
+                    player_names,
+                    identifiers,
+                    data_function=data_function,
+                    player_match=player_match,
+                )
+                global_match_info.extend(match_info)
         else:
             logging.error('Error: Not a file or directory')
     recurse(path)
+
+    if multi:
+        return match_info_paths
 
     with open('match_info.json', 'w', encoding='utf-8') as output:
         json.dump({'match_info': global_match_info}, output)
