@@ -29,7 +29,7 @@ standard_ignore_units = [
 standard_merge_units = {
     'ObserverSiegeMode': 'Observer',
     'WarpPrismPhasing': 'WarpPrism',
-    'WidowMineBurrowed': 'WindowMine',
+    'WidowMineBurrowed': 'WidowMine',
     'SiegeTankSieged': 'SiegeTank',
     'ThorAP': 'Thor',
     'VikingFighter': 'Viking',
