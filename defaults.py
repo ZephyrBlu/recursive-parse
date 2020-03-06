@@ -39,5 +39,5 @@ standard_merge_units = {
     'OverlordTransport': 'Overlord',
     'LurkerMP': 'Lurker',
     'LurkerMPBurrowed': 'Lurker',
-    'SwarmhostMP': 'Swarmhost',
+    'SwarmHostMP': 'SwarmHost',
 }
